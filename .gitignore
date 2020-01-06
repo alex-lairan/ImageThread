@@ -2,6 +2,7 @@ build
 bin
 
 media/out/*
+media/heavy_in
 !media/out/.keep
 
 CMakeFiles

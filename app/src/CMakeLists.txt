@@ -5,5 +5,5 @@ include_directories(${ImageThread_SOURCE_DIR}/app/include)
 include_directories(${ImageThread_SOURCE_DIR}/lib/bitmap)
 link_directories(${ImageThread_SOURCE_DIR}/lib/bitmap)
 
-add_executable(MainProject main.c)
+add_executable(MainProject main.c effects.c)
 target_link_libraries(MainProject Bitmap)

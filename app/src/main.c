@@ -1,97 +1,52 @@
+#include "effects.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <bitmap.h>
-#include <stdint.h>
 #include <string.h>
 #include <dirent.h>
 
-#define DIM 3
-#define LENGTH DIM
-#define OFFSET DIM /2
+typedef struct Processing {
+	char* dir_in;
+	char* dir_out;
 
-const float KERNEL_IDENTITY[DIM][DIM] = {
-	{  0,  0,	 0 },
-	{  0,  1,	 0 },
-	{  0,  0,	 0 }
-};
+	size_t bmp_count;
+	char** files;
+} Processing;
 
-const float KERNEL_EDGE_DETECT[DIM][DIM] = {
-	{ -1, -1,	-1 },
-	{ -1,  8,	-1 },
-	{ -1, -1,	-1 }
-};
+Processing* load_processing_data(char* dir_in, char* dir_out) {
+	DIR* bitmap_directory;
+	bitmap_directory = opendir(dir_in);
 
-const float KERNEL_SHARPEN[DIM][DIM] = {
-	{  0, -1,	 0 },
-	{ -1,  5,	-1 },
-	{  0, -1,	 0 }
-};
+	if(!bitmap_directory) { return NULL; } // Folder does not exist
 
-const float KERNEL_BOX_BLUR[DIM][DIM] = {
-	{ 1.0/9, 1.0/9, 1.0/9 },
-	{ 1.0/9, 1.0/9, 1.0/9 },
-	{ 1.0/9, 1.0/9, 1.0/9 }
-};
+	struct dirent *bitmap_file_dir;
+	size_t file_count = 0;
 
-typedef struct Color_t {
-	float Red;
-	float Green;
-	float Blue;
-} Color_e;
+	while((bitmap_file_dir = readdir(bitmap_directory)) != NULL) {
+			char *dot = strrchr(bitmap_file_dir->d_name, '.');
+			if (dot && !strcmp(dot, ".bmp")) { file_count += 1; }
+	}
 
+	rewinddir(bitmap_directory);
 
-void apply_effect(Image* original, Image* new_i, float kernel[DIM][DIM]);
-void apply_effect(Image* original, Image* new_i, float kernel[DIM][DIM]) {
+	char** file_names = (char**) malloc(sizeof(char*) * file_count);
+	size_t current_pos = 0;
 
-	int w = original->bmp_header.width;
-	int h = original->bmp_header.height;
-
-	*new_i = new_image(w, h, original->bmp_header.bit_per_pixel, original->bmp_header.color_planes);
-
-	for (int y = OFFSET; y < h - OFFSET; y++) {
-		for (int x = OFFSET; x < w - OFFSET; x++) {
-			Color_e c = { .Red = 0, .Green = 0, .Blue = 0};
-
-			for(int a = 0; a < LENGTH; a++){
-				for(int b = 0; b < LENGTH; b++){
-					int xn = x + a - OFFSET;
-					int yn = y + b - OFFSET;
-
-					Pixel* p = &original->pixel_data[yn][xn];
-
-					c.Red += ((float) p->r) * kernel[a][b];
-					c.Green += ((float) p->g) * kernel[a][b];
-					c.Blue += ((float) p->b) * kernel[a][b];
-				}
-			}
-
-			Pixel* dest = &new_i->pixel_data[y][x];
-			dest->r = (uint8_t)  (c.Red <= 0 ? 0 : c.Red >= 255 ? 255 : c.Red);
-			dest->g = (uint8_t) (c.Green <= 0 ? 0 : c.Green >= 255 ? 255 : c.Green);
-			dest->b = (uint8_t) (c.Blue <= 0 ? 0 : c.Blue >= 255 ? 255 : c.Blue);
+	while((bitmap_file_dir = readdir(bitmap_directory)) != NULL) {
+		char *dot = strrchr(bitmap_file_dir->d_name, '.');
+		if (dot && !strcmp(dot, ".bmp")) {
+			file_names[current_pos] = bitmap_file_dir->d_name;
+			current_pos += 1;
 		}
 	}
-}
 
-void copy_kernel(const float from[DIM][DIM], float to[DIM][DIM]) {
-	for(int i = 0; i < DIM; ++i) {
-		for(int j = 0; j < DIM; ++j) {
-			to[i][j] = from[i][j];
-		}
-	}
-}
+	Processing* processing = (Processing*) malloc(sizeof(Processing));
+	processing->dir_in = dir_in;
+	processing->dir_out = dir_out;
+	processing->bmp_count = file_count;
+	processing->files = file_names;
 
-void select_kernel(char* effect, float kernel[DIM][DIM]) {
-	if(strcmp(effect, "boxblur") == 0) {
-		copy_kernel(KERNEL_BOX_BLUR, kernel);
-	} else if(strcmp(effect, "sharpen") == 0) {
-		copy_kernel(KERNEL_SHARPEN, kernel);
-	} else if(strcmp(effect, "edgedetect") == 0) {
-		copy_kernel(KERNEL_EDGE_DETECT, kernel);
-	} else {
-		copy_kernel(KERNEL_IDENTITY, kernel);
-	}
+	return processing;
 }
 
 int main(int argc, char** argv) {
@@ -111,31 +66,32 @@ int main(int argc, char** argv) {
 	float kernel[DIM][DIM];
 	select_kernel(effect, kernel);
 
-	DIR *bitmap_directory;
-	bitmap_directory = opendir(bitmap_in);
+	Processing* processing = load_processing_data(bitmap_in, bitmap_out);
 
-	if(bitmap_directory) {
-		struct dirent *bitmap_file_dir;
-		while((bitmap_file_dir = readdir(bitmap_directory)) != NULL) {
-			char *dot = strrchr(bitmap_file_dir->d_name, '.');
-			if (dot && !strcmp(dot, ".bmp")) {
-				int char_len_in = strlen(bitmap_in) + strlen(bitmap_file_dir->d_name) + 2;
-				int char_len_out = strlen(bitmap_out) + strlen(bitmap_file_dir->d_name) + 2;
-				char* image_path_in = (char *)malloc(char_len_in);
-				char* image_path_out = (char *)malloc(char_len_out);
-
-				sprintf(image_path_in, "%s/%s", bitmap_in, bitmap_file_dir->d_name);
-				sprintf(image_path_out, "%s/%s", bitmap_out, bitmap_file_dir->d_name);
-
-				Image image = open_bitmap(image_path_in);
-				Image new_i;
-				apply_effect(&image, &new_i, kernel);
-				save_bitmap(new_i, image_path_out);
-			}
-		}
-	} else {
+	if(processing == NULL) {
 		fprintf(stderr, "Error: The `in` folder doesn't exists\n");
 		return -2;
+	}
+
+	printf("Process %d images\n", processing->bmp_count);
+
+	for(int i = 0; i < processing->bmp_count; ++i) {
+		int char_len_in = strlen(processing->dir_in) + strlen(processing->files[i]) + 2;
+		int char_len_out = strlen(processing->dir_out) + strlen(processing->files[i]) + 2;
+
+		char* image_path_in = (char *)malloc(char_len_in);
+		char* image_path_out = (char *)malloc(char_len_out);
+
+		sprintf(image_path_in, "%s/%s", processing->dir_in, processing->files[i]);
+		sprintf(image_path_out, "%s/%s", processing->dir_out, processing->files[i]);
+
+		Image image = open_bitmap(image_path_in);
+		Image new_i;
+		apply_effect(&image, &new_i, kernel);
+		save_bitmap(new_i, image_path_out);
+
+		free(image_path_in);
+		free(image_path_out);
 	}
 
   return 0;
