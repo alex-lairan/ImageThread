@@ -4,6 +4,7 @@
 #include <bitmap.h>
 #include <stdint.h>
 #include <string.h>
+#include <dirent.h>
 
 #define DIM 3
 #define LENGTH DIM
@@ -96,6 +97,9 @@ void select_kernel(char* effect, float kernel[DIM][DIM]) {
 int main(int argc, char** argv) {
   if(argc != 5) {
 		fprintf(stderr, "Error: You must provide four arguments (Given %d)\n", argc - 1);
+		fprintf(stderr, "\timage_thread IN_FOLDER OUT_FOLDER CONSUMER_COUNT FILTER\n");
+		fprintf(stderr, "Filters :\n\t- boxblur\n\t- sharpen\n\t- edgedetect\n");
+		fprintf(stderr, "In case of non existing filter, just copy BMP files\n");
 		return -1;
   }
 
@@ -107,10 +111,32 @@ int main(int argc, char** argv) {
 	float kernel[DIM][DIM];
 	select_kernel(effect, kernel);
 
-  Image image = open_bitmap(bitmap_in);
-	Image new_i;
-	apply_effect(&image, &new_i, kernel);
-	save_bitmap(new_i, bitmap_out);
+	DIR *bitmap_directory;
+	bitmap_directory = opendir(bitmap_in);
+
+	if(bitmap_directory) {
+		struct dirent *bitmap_file_dir;
+		while((bitmap_file_dir = readdir(bitmap_directory)) != NULL) {
+			char *dot = strrchr(bitmap_file_dir->d_name, '.');
+			if (dot && !strcmp(dot, ".bmp")) {
+				int char_len_in = strlen(bitmap_in) + strlen(bitmap_file_dir->d_name) + 2;
+				int char_len_out = strlen(bitmap_out) + strlen(bitmap_file_dir->d_name) + 2;
+				char* image_path_in = (char *)malloc(char_len_in);
+				char* image_path_out = (char *)malloc(char_len_out);
+
+				sprintf(image_path_in, "%s/%s", bitmap_in, bitmap_file_dir->d_name);
+				sprintf(image_path_out, "%s/%s", bitmap_out, bitmap_file_dir->d_name);
+
+				Image image = open_bitmap(image_path_in);
+				Image new_i;
+				apply_effect(&image, &new_i, kernel);
+				save_bitmap(new_i, image_path_out);
+			}
+		}
+	} else {
+		fprintf(stderr, "Error: The `in` folder doesn't exists\n");
+		return -2;
+	}
 
   return 0;
 }
