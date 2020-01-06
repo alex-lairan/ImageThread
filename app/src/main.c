@@ -3,15 +3,34 @@
 #include <unistd.h>
 #include <bitmap.h>
 #include <stdint.h>
+#include <string.h>
 
 #define DIM 3
 #define LENGTH DIM
 #define OFFSET DIM /2
 
-const float KERNEL[DIM][DIM] = {
+const float KERNEL_IDENTITY[DIM][DIM] = {
+	{  0,  0,	 0 },
+	{  0,  1,	 0 },
+	{  0,  0,	 0 }
+};
+
+const float KERNEL_EDGE_DETECT[DIM][DIM] = {
 	{ -1, -1,	-1 },
 	{ -1,  8,	-1 },
 	{ -1, -1,	-1 }
+};
+
+const float KERNEL_SHARPEN[DIM][DIM] = {
+	{  0, -1,	 0 },
+	{ -1,  5,	-1 },
+	{  0, -1,	 0 }
+};
+
+const float KERNEL_BOX_BLUR[DIM][DIM] = {
+	{ 1.0/9, 1.0/9, 1.0/9 },
+	{ 1.0/9, 1.0/9, 1.0/9 },
+	{ 1.0/9, 1.0/9, 1.0/9 }
 };
 
 typedef struct Color_t {
@@ -21,8 +40,8 @@ typedef struct Color_t {
 } Color_e;
 
 
-void apply_effect(Image* original, Image* new_i);
-void apply_effect(Image* original, Image* new_i) {
+void apply_effect(Image* original, Image* new_i, float kernel[DIM][DIM]);
+void apply_effect(Image* original, Image* new_i, float kernel[DIM][DIM]) {
 
 	int w = original->bmp_header.width;
 	int h = original->bmp_header.height;
@@ -40,9 +59,9 @@ void apply_effect(Image* original, Image* new_i) {
 
 					Pixel* p = &original->pixel_data[yn][xn];
 
-					c.Red += ((float) p->r) * KERNEL[a][b];
-					c.Green += ((float) p->g) * KERNEL[a][b];
-					c.Blue += ((float) p->b) * KERNEL[a][b];
+					c.Red += ((float) p->r) * kernel[a][b];
+					c.Green += ((float) p->g) * kernel[a][b];
+					c.Blue += ((float) p->b) * kernel[a][b];
 				}
 			}
 
@@ -54,18 +73,43 @@ void apply_effect(Image* original, Image* new_i) {
 	}
 }
 
+void copy_kernel(const float from[DIM][DIM], float to[DIM][DIM]) {
+	for(int i = 0; i < DIM; ++i) {
+		for(int j = 0; j < DIM; ++j) {
+			to[i][j] = from[i][j];
+		}
+	}
+}
+
+void select_kernel(char* effect, float kernel[DIM][DIM]) {
+	if(strcmp(effect, "boxblur") == 0) {
+		copy_kernel(KERNEL_BOX_BLUR, kernel);
+	} else if(strcmp(effect, "sharpen") == 0) {
+		copy_kernel(KERNEL_SHARPEN, kernel);
+	} else if(strcmp(effect, "edgedetect") == 0) {
+		copy_kernel(KERNEL_EDGE_DETECT, kernel);
+	} else {
+		copy_kernel(KERNEL_IDENTITY, kernel);
+	}
+}
+
 int main(int argc, char** argv) {
-  if(argc != 3) {
-		fprintf(stderr, "Error: You must provide two arguments (Given %d)\n", argc - 1);
+  if(argc != 5) {
+		fprintf(stderr, "Error: You must provide four arguments (Given %d)\n", argc - 1);
 		return -1;
   }
 
 	char* bitmap_in = argv[1];
   char* bitmap_out = argv[2];
+	int producers = atoi(argv[3]);
+	char* effect = argv[4];
+
+	float kernel[DIM][DIM];
+	select_kernel(effect, kernel);
 
   Image image = open_bitmap(bitmap_in);
 	Image new_i;
-	apply_effect(&image, &new_i);
+	apply_effect(&image, &new_i, kernel);
 	save_bitmap(new_i, bitmap_out);
 
   return 0;

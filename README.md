@@ -16,5 +16,5 @@ The app is located in `/bin` folder
 Exemple usage :
 
 ```sh
-./bin/image_thread media/in/bmp_tank.bmp media/out/bmp_tank_out.bmp
+./bin/image_thread media/in/bmp_tank.bmp media/out/bmp_tank_out.bmp 1 sharpen
 ```
