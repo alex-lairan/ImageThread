@@ -1,0 +1,7 @@
+build
+bin
+
+media/out/*
+!media/out/.keep
+
+CMakeFiles
