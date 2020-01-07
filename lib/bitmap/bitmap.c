@@ -42,8 +42,8 @@
 /* Read a value with a specific mask, removing trailing zeros. */
 #define READ_MASK(val, mask) (((val) & (mask)) >> tr_zeros((mask)))
 
-/* Length in bit for the string length encode in the steganographic 
- * functions. */ 
+/* Length in bit for the string length encode in the steganographic
+ * functions. */
 #define STEG_LEN 32
 
 /* Update indices while reading channels of various pixels sequentially;
@@ -74,13 +74,13 @@ const uint8_t mask4[] = {240, 15};
  * @param val Input value.
  * @return Number of trailing binary zeros.
  */
-static __inline__ unsigned int tr_zeros(uint32_t val) 
+static __inline__ unsigned int tr_zeros(uint32_t val)
     __attribute__((always_inline));
 
 /*
  * Count trailing binary zeros.
  */
-static unsigned int tr_zeros(uint32_t val) 
+static unsigned int tr_zeros(uint32_t val)
 {
     unsigned int res = 0;
 
@@ -210,8 +210,8 @@ int copy_image(Image to, Image from)
  */
 Image open_bitmap(const char *filename)
 {
-    FILE *f; 
-    File_header file_header; 
+    FILE *f;
+    File_header file_header;
     Bmp_header *h;
     Image image;
     short allocated_palette = 0;
@@ -362,7 +362,7 @@ Image open_bitmap(const char *filename)
     buf = bitmap_buffer;
     switch (h->bit_per_pixel)
     {
-        /* each byte of data represents 8 pixels, with the most significant 
+        /* each byte of data represents 8 pixels, with the most significant
          * bit mapped into the leftmost pixel */
         case 1:
             for (i = 0; i < h->height; ++i)
@@ -370,11 +370,11 @@ Image open_bitmap(const char *filename)
                 bit = 0;
                 for (j = 0; j < h->width; ++j)
                 {
-                    /* get the right bit from the current byte, 
+                    /* get the right bit from the current byte,
                      * starting from the most significative one */
                     image.pixel_data[i][j].i = READ_MASK(*buf, mask1[bit]);
                     ++bit;
-                    
+
                     /* when the current byte has been fully read,
                      * advance to the next one */
                     if (bit == 8)
@@ -396,11 +396,11 @@ Image open_bitmap(const char *filename)
                 for (j = 0; j < h->width; j += 2)
                 {
                     /* read the two pixels in the current byte */
-                    image.pixel_data[i][j].i = 
+                    image.pixel_data[i][j].i =
                         READ_MASK(*buf, mask4[HI_NIBBLE]);
 
                     if (j + 1 < h->width)
-                        image.pixel_data[i][j + 1].i = 
+                        image.pixel_data[i][j + 1].i =
                             READ_MASK(*buf, mask4[LO_NIBBLE]);
 
                     /* advance to the next byte */
@@ -442,7 +442,7 @@ Image open_bitmap(const char *filename)
             }
             break;
 
-        /* each pixel is represented with 3 bytes, with 1 byte for each 
+        /* each pixel is represented with 3 bytes, with 1 byte for each
          * component */
         case 24:
             for (i = 0; i < h->height; ++i)
@@ -496,14 +496,14 @@ int save_bitmap(Image image, const char *filename)
     uint8_t *bitmap_buffer;
     uint8_t *buf;
     size_t pad = (4 - ((h->width * h->bit_per_pixel + 7) / 8) % 4) % 4;
-    File_header file_header = 
+    File_header file_header =
     {
         /* bmp magic number */
-        0x4D42, 
-        
+        0x4D42,
+
         /* file size */
-        sizeof (File_header) 
-            + h->header_size 
+        sizeof (File_header)
+            + h->header_size
             + h->color_no * 4
             + h->image_size,
 
@@ -552,11 +552,11 @@ int save_bitmap(Image image, const char *filename)
     /* allocate buffer for bitmap pixel data */
     bitmap_buffer = (uint8_t*) calloc(1, h->image_size);
     buf = bitmap_buffer;
-    
+
     /* convert pixel data into bitmap format */
     switch (h->bit_per_pixel)
     {
-        /* each byte of data represents 8 pixels, with the most significant 
+        /* each byte of data represents 8 pixels, with the most significant
          * bit mapped into the leftmost pixel */
         case 1:
             for (i = 0; i < h->height; ++i)
@@ -619,9 +619,9 @@ int save_bitmap(Image image, const char *filename)
                 for (j = 0; j < h->width; ++j)
                 {
                     uint16_t *px = (uint16_t*) buf;
-                    *px = 
+                    *px =
                         (image.pixel_data[i][j].b << tr_zeros(h->blue_mask)) +
-                        (image.pixel_data[i][j].g << tr_zeros(h->green_mask)) + 
+                        (image.pixel_data[i][j].g << tr_zeros(h->green_mask)) +
                         (image.pixel_data[i][j].r << tr_zeros(h->red_mask));
 
                     /* advance to the next pixel (half-word) */
@@ -632,7 +632,7 @@ int save_bitmap(Image image, const char *filename)
             }
             break;
 
-        /* each pixel is represented with 3 bytes, with 1 byte for each 
+        /* each pixel is represented with 3 bytes, with 1 byte for each
          * color component */
         case 24:
             for (i = 0; i < h->height; ++i)
@@ -655,10 +655,10 @@ int save_bitmap(Image image, const char *filename)
                 for (j = 0; j < h->width; ++j)
                 {
                     uint32_t *px = (uint32_t*) buf;
-                    *px = 
+                    *px =
                         (image.pixel_data[i][j].b << tr_zeros(h->blue_mask)) +
-                        (image.pixel_data[i][j].g << tr_zeros(h->green_mask)) + 
-                        (image.pixel_data[i][j].r << tr_zeros(h->red_mask)) + 
+                        (image.pixel_data[i][j].g << tr_zeros(h->green_mask)) +
+                        (image.pixel_data[i][j].r << tr_zeros(h->red_mask)) +
                         (image.pixel_data[i][j].i << tr_zeros(h->alpha_mask));
 
                     /* advance to the next pixel (word) */
@@ -669,7 +669,7 @@ int save_bitmap(Image image, const char *filename)
             }
             break;
     }
-    
+
     /* write pixel data in the file */
     assert(file_header.bmp_offset == ftell(f));
     fwrite(bitmap_buffer, h->image_size, 1, f);
@@ -690,7 +690,7 @@ int save_bitmap(Image image, const char *filename)
  */
 char* bmp_dump(Image image)
 {
-    /* 22 * 26 is an extimation for the header dump, 
+    /* 22 * 26 is an extimation for the header dump,
      * 21 * color_no is for the palette */
     char *out = (char*) malloc(22 * 26 + 21 * image.bmp_header.color_no);
     sprintf(out,
@@ -745,7 +745,7 @@ char* bmp_dump(Image image)
         for (size_t i = 0; i < image.bmp_header.color_no; ++i)
         {
             char buf[100];
-            sprintf(buf, 
+            sprintf(buf,
                     "%3lu: %3u %3u %3u %3u\n",
                     i,
                     image.palette[i].r,
@@ -760,7 +760,7 @@ char* bmp_dump(Image image)
 }
 
 /*!
- * Return a string containing an ASCII art representation for the 
+ * Return a string containing an ASCII art representation for the
  * two colors input image.
  */
 char* ascii_print(Image image)
@@ -821,8 +821,8 @@ unsigned long* histogram(Image image, const int channel)
             /* convert packed struct pointer into an array pointer
              * to access the channel */
             hist[((uint8_t*) &image.pixel_data[i][j])[channel]] += 1;
-    
-    return hist; 
+
+    return hist;
 }
 
 /*!
@@ -843,7 +843,7 @@ int equalize(Image image, const int channel)
         fprintf(stderr, "equalize: invalid channel.\n");
         return 1;
     }
-    
+
     /* get histogram */
     h = histogram(image, channel);
     if (!h)
@@ -896,7 +896,7 @@ int rgb2ycbcr(Image image)
             /* Y */
             image.pixel_data[i][j].b = y =
                   0.299 * p.r
-                + 0.587 * p.g 
+                + 0.587 * p.g
                 + 0.114 * p.b;
 
             /* Cb */
@@ -951,8 +951,8 @@ int ycbcr2rgb(Image image)
 }
 
 /*!
- * Write an hidden text message inside a bitmap. Each color channel of each 
- * pixel holds a bit of the message; pixels are read from bottom left to top 
+ * Write an hidden text message inside a bitmap. Each color channel of each
+ * pixel holds a bit of the message; pixels are read from bottom left to top
  * right, while channels for each pixel are read from B to R. The bits of
  * the characters or numbers are written in little endian order.
  *
@@ -960,7 +960,7 @@ int ycbcr2rgb(Image image)
  * The evenness of the values is manipulated to encode the message while doing
  * only a quasi invisible change to the image aspect.
  *
- * A bitmap of size \f$ width \cdot height \f$ can hold 
+ * A bitmap of size \f$ width \cdot height \f$ can hold
  * \f$ 3 \cdot width \cdot height \f$ bits of data. The first 32 bits are used
  * to encode the length of the payload message. Then the message follows, and
  * the eventual exceeding channels are filled with random data.
@@ -984,7 +984,7 @@ int steganography_write(Image image, const char *string)
 
     if (h->bit_per_pixel < 16)
     {
-        fprintf(stderr, 
+        fprintf(stderr,
                 "steganography_write: only 16 bit or higher bpp images"
                 "allowed\n");
         return 1;
@@ -1034,7 +1034,7 @@ int steganography_write(Image image, const char *string)
  * message first, and read the message if it is valid. If the bitmap does not
  * actually contain an hidden message, the read can fail on the length check,
  * or maybe the operation may prosecute and return a string filled with
- * garbage. The user must be sure that the image under reading actually  
+ * garbage. The user must be sure that the image under reading actually
  * contains a valid message encoded.
  */
 char* steganography_read(Image image)
@@ -1048,12 +1048,12 @@ char* steganography_read(Image image)
 
     if (h->bit_per_pixel < 16)
     {
-        fprintf(stderr, 
+        fprintf(stderr,
                 "steganography_read: only 16 bit or higher bpp images"
                 "allowed\n");
         return NULL;
     }
-    
+
     /* read the string length (inclusive of termination character) */
     i = j = ch = 0;
     for (k = 0; k < STEG_LEN; ++k)
@@ -1066,7 +1066,7 @@ char* steganography_read(Image image)
     /* ensure the string length is valid */
     if (len > allowed_len)
     {
-        fprintf(stderr, 
+        fprintf(stderr,
                 "steganography_read: invalid string length read, probably"
                 "the image does not contain a message.\n");
         return NULL;
