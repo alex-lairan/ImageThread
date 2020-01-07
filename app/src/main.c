@@ -6,6 +6,8 @@
 #include <dirent.h>
 #include <math.h>
 #include <pthread.h>
+#include <time.h>
+
 
 typedef struct ProgramParams {
 	char* dir_in;
@@ -100,6 +102,7 @@ void* do_processing_threaded(void* process_unit_raw) {
 }
 
 int main(int argc, char** argv) {
+	clock_t t = clock();
   if(argc != 5) {
 		fprintf(stderr, "Error: You must provide four arguments (Given %d)\n", argc - 1);
 		fprintf(stderr, "\timage_thread IN_FOLDER OUT_FOLDER CONSUMER_COUNT FILTER\n");
@@ -139,6 +142,11 @@ int main(int argc, char** argv) {
 
 	free(units);
 	free(threads);
+
+	t = clock() - t;
+	double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
+
+	printf("Taken %f seconds to execute \n", time_taken);
 
   return 0;
 }
