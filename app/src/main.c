@@ -30,6 +30,7 @@ typedef struct Processing {
 	size_t bmp_done;
 	char** files;
 
+	pthread_cond_t awake_signal;
 	StackMutex* stack_mutex;
 } Processing;
 
@@ -82,8 +83,24 @@ Processing* load_processing_data(ProgramParams* params) {
 	processing->bmp_done = 0;
 	processing->files = file_names;
 	processing->stack_mutex = stack_mutex;
-
+	pthread_cond_init(&processing->awake_signal, NULL);
 	return processing;
+}
+
+void free_processing(Processing* processing) {
+	freeStack(processing->stack_mutex->stack);
+	pthread_mutex_destroy(processing->stack_mutex->lock);
+	free(processing->stack_mutex->lock);
+
+	for(size_t i = 0; i < processing->bmp_count; ++i) {
+		free(processing->files[i]);
+	}
+
+	free(processing->files);
+
+	pthread_cond_destroy(&processing->awake_signal);
+
+	free(processing);
 }
 
 
@@ -125,15 +142,19 @@ void* do_processing_threaded(void* process_unit_raw) {
 
 		pthread_mutex_lock(process_unit->data->stack_mutex->lock);
 			push(process_unit->data->stack_mutex->stack, unit);
+			pthread_cond_broadcast(&process_unit->data->awake_signal);
 		pthread_mutex_unlock(process_unit->data->stack_mutex->lock);
 	}
 }
-
 
 void* consumer(void* processing_raw) {
 	Processing* processing = (Processing*) processing_raw;
 
 	while(processing->bmp_done < processing->bmp_count) {
+		pthread_mutex_lock(processing->stack_mutex->lock);
+		pthread_cond_wait(&processing->awake_signal, processing->stack_mutex->lock);
+		pthread_mutex_unlock(processing->stack_mutex->lock);
+
 		while(!isEmpty(processing->stack_mutex->stack)) {
 			pthread_mutex_lock(processing->stack_mutex->lock);
 				ImageUnit* unit = pop(processing->stack_mutex->stack);

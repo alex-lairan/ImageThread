@@ -12,6 +12,11 @@ StackImage* createStack(unsigned capacity) {
   return stack;
 }
 
+void freeStack(StackImage* stack) {
+  free(stack->array);
+  free(stack);
+}
+
 int isFull(StackImage* stack) {
   return stack->top == stack->capacity - 1;
 }

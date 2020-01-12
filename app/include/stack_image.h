@@ -16,6 +16,7 @@ typedef struct StackImage {
 } StackImage;
 
 StackImage* createStack(unsigned capacity);
+void freeStack(StackImage* stack);
 int isFull(StackImage* stack);
 int isEmpty(StackImage* stack);
 bool push(StackImage* stack, ImageUnit* item);
