@@ -1,4 +1,5 @@
 #include "effects.h"
+#include "stack_image.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,11 +18,19 @@ typedef struct ProgramParams {
 	float kernel[DIM][DIM];
 } ProgramParams;
 
+typedef struct StackMutex {
+	pthread_mutex_t* lock;
+	StackImage* stack;
+} StackMutex;
+
 typedef struct Processing {
 	ProgramParams* params;
 
 	size_t bmp_count;
+	size_t bmp_done;
 	char** files;
+
+	StackMutex* stack_mutex;
 } Processing;
 
 typedef struct ProcessUnit {
@@ -60,16 +69,25 @@ Processing* load_processing_data(ProgramParams* params) {
 		}
 	}
 
+	StackMutex* stack_mutex = (StackMutex*)malloc(sizeof(StackMutex));
+	printf("Create a stack 50\n");
+	stack_mutex->stack = createStack(50);
+	printf("Create a lock\n");
+	stack_mutex->lock = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(stack_mutex->lock, NULL);
+
 	Processing* processing = (Processing*) malloc(sizeof(Processing));
 	processing->params = params;
 	processing->bmp_count = file_count;
+	processing->bmp_done = 0;
 	processing->files = file_names;
+	processing->stack_mutex = stack_mutex;
 
 	return processing;
 }
 
 
-void process_image(Processing* processing, int i) {
+ImageUnit* process_image(Processing* processing, int i) {
 	int char_len_in = strlen(processing->params->dir_in) + strlen(processing->files[i]) + 2;
 	int char_len_out = strlen(processing->params->dir_out) + strlen(processing->files[i]) + 2;
 
@@ -80,13 +98,17 @@ void process_image(Processing* processing, int i) {
 	sprintf(image_path_out, "%s/%s", processing->params->dir_out, processing->files[i]);
 
 	Image image = open_bitmap(image_path_in);
-	Image new_i;
+	Image* new_i = (Image*)malloc(sizeof(Image));
 
-	apply_effect(&image, &new_i, processing->params->kernel);
-	save_bitmap(new_i, image_path_out);
+	apply_effect(&image, new_i, processing->params->kernel);
 
 	free(image_path_in);
-	free(image_path_out);
+
+	ImageUnit* unit = (ImageUnit*)malloc(sizeof(ImageUnit));
+	unit->image = new_i;
+	unit->path = image_path_out;
+
+	return unit;
 }
 
 void* do_processing_threaded(void* process_unit_raw) {
@@ -95,9 +117,32 @@ void* do_processing_threaded(void* process_unit_raw) {
 	printf("\nWorker %d Start with %d\tEnd with %d\n", process_unit->number, process_unit->start, process_unit->end);
 
 	for(size_t i = process_unit->start; i < process_unit->end; ++i) {
+		ImageUnit* unit = process_image(process_unit->data, i);
 		printf("\x1B[33mWorker %d\x1B[0m", process_unit->number);
 		printf("\t\x1B[36mProcess image %d %s\x1B[0m\n", i, process_unit->data->files[i]);
-		process_image(process_unit->data, i);
+
+		process_unit->data->stack_mutex->stack;
+
+		pthread_mutex_lock(process_unit->data->stack_mutex->lock);
+			push(process_unit->data->stack_mutex->stack, unit);
+		pthread_mutex_unlock(process_unit->data->stack_mutex->lock);
+	}
+}
+
+
+void* consumer(void* processing_raw) {
+	Processing* processing = (Processing*) processing_raw;
+
+	while(processing->bmp_done < processing->bmp_count) {
+		while(!isEmpty(processing->stack_mutex->stack)) {
+			pthread_mutex_lock(processing->stack_mutex->lock);
+				ImageUnit* unit = pop(processing->stack_mutex->stack);
+			pthread_mutex_unlock(processing->stack_mutex->lock);
+
+			printf("\x1B[37mSave image %s\x1B[0m\n", unit->path);
+			save_bitmap(*unit->image, unit->path);
+			processing->bmp_done += 1;
+		}
 	}
 }
 
@@ -125,6 +170,9 @@ int main(int argc, char** argv) {
 	pthread_t* threads = (pthread_t*) malloc(sizeof(pthread_t) * processing->params->producers);
 	ProcessUnit* units = (ProcessUnit*) malloc(sizeof(ProcessUnit) * processing->params->producers);
 
+	clock_t mid_time = clock() - t;
+	printf("\x1B[35mTaken \x1B[1;31m%f\x1B[0;35m seconds to execute before threads\n\x1B[0m", ((double)mid_time)/CLOCKS_PER_SEC);
+
 	for(size_t i = 0; i < processing->params->producers; ++i) {
 		float ratio = ceil(processing->bmp_count * 1.0 / processing->params->producers);
 		size_t start = ratio * i;
@@ -136,17 +184,24 @@ int main(int argc, char** argv) {
 		pthread_create(threads + i, NULL, do_processing_threaded, units + i);
 	}
 
+	pthread_t consumer_thread;
+	pthread_create(&consumer_thread, NULL, consumer, processing);
+
+	mid_time = clock() - t;
+	printf("\x1B[35mTaken \x1B[1;31m%f\x1B[0;35m seconds to execute before join\n\x1B[0m", ((double)mid_time)/CLOCKS_PER_SEC);
+
 	for(size_t i = 0; i < processing->params->producers; ++i) {
 		pthread_join(threads[i], NULL);
 	}
+	pthread_join(consumer_thread, NULL);
 
 	free(units);
 	free(threads);
 
-	t = clock() - t;
-	double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
+	clock_t last_time = clock() - t;
+	double time_taken = ((double)last_time)/CLOCKS_PER_SEC; // in seconds
 
-	printf("Taken %f seconds to execute \n", time_taken);
+	printf("\x1B[35mTaken \x1B[1;31m%f\x1B[0;35m seconds to execute \n\x1B[0m", time_taken);
 
   return 0;
 }

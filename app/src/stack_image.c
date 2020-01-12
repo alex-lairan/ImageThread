@@ -8,22 +8,19 @@ StackImage* createStack(unsigned capacity) {
   StackImage* stack = (StackImage*)malloc(sizeof(StackImage));
   stack->capacity = capacity;
   stack->top = -1;
-  stack->array = (Image**)malloc(stack->capacity * sizeof(Image*));
+  stack->array = (ImageUnit**)malloc(stack->capacity * sizeof(ImageUnit*));
   return stack;
 }
 
-// Stack is full when top is equal to the last index
 int isFull(StackImage* stack) {
   return stack->top == stack->capacity - 1;
 }
 
-// Stack is empty when top is equal to -1
 int isEmpty(StackImage* stack) {
   return stack->top == -1;
 }
 
-// Function to add an item to stack.  It increases top by 1
-bool push(StackImage* stack, Image* item) {
+bool push(StackImage* stack, ImageUnit* item) {
   if (isFull(stack))
     return false;
   stack->array[++stack->top] = item;
@@ -31,13 +28,11 @@ bool push(StackImage* stack, Image* item) {
   return true;
 }
 
-// Function to remove an item from stack.  It decreases top by 1
-Image* pop(StackImage* stack) {
+ImageUnit* pop(StackImage* stack) {
   stack->top -= 1;
   return stack->array[stack->top + 1];
 }
 
-// Function to return the top from stack without removing it
-Image* peek(StackImage* stack) {
+ImageUnit* peek(StackImage* stack) {
   return stack->array[stack->top];
 }

@@ -5,5 +5,7 @@ include_directories(${ImageThread_SOURCE_DIR}/app/include)
 include_directories(${ImageThread_SOURCE_DIR}/lib/bitmap)
 link_directories(${ImageThread_SOURCE_DIR}/lib/bitmap)
 
-add_executable(MainProject main.c effects.c stack_image.c)
-target_link_libraries(MainProject Bitmap m pthread)
+add_executable(image_thread main.c effects.c stack_image.c)
+target_link_libraries(image_thread Bitmap m pthread)
+
+install(TARGETS image_thread DESTINATION bin)
