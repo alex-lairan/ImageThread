@@ -1,6 +1,7 @@
 #include "effects.h"
 
 #include <string.h>
+#include <omp.h>
 
 #define LENGTH DIM
 #define OFFSET DIM /2
@@ -31,6 +32,19 @@ const float KERNEL_BOX_BLUR[DIM][DIM] = {
 	{ 1.0/9, 1.0/9, 1.0/9 }
 };
 
+
+void inline apply_convolution(Color_e* c, int a, int b, int x, int y, Image* img, float kernel[DIM][DIM]) __attribute__((always_inline));
+void apply_convolution(Color_e* restrict c, int a, int b, int x, int y, Image* restrict img, float kernel[DIM][DIM]) {
+	int xn = x + a - OFFSET;
+	int yn = y + b - OFFSET;
+
+	Pixel* p = &img->pixel_data[yn][xn];
+
+	c->Red += ((float) p->r) * kernel[a][b];
+	c->Green += ((float) p->g) * kernel[a][b];
+	c->Blue += ((float) p->b) * kernel[a][b];
+}
+
 void apply_effect(Image* original, Image* new_i, float kernel[DIM][DIM]) {
 
 	int w = original->bmp_header.width;
@@ -38,22 +52,30 @@ void apply_effect(Image* original, Image* new_i, float kernel[DIM][DIM]) {
 
 	*new_i = new_image(w, h, original->bmp_header.bit_per_pixel, original->bmp_header.color_planes);
 
+	#pragma omp parallel for collapse(2)
 	for (int y = OFFSET; y < h - OFFSET; y++) {
+		// #pragma omp parallel for
 		for (int x = OFFSET; x < w - OFFSET; x++) {
 			Color_e c = { .Red = 0, .Green = 0, .Blue = 0};
 
-			for(int a = 0; a < LENGTH; a++){
-				for(int b = 0; b < LENGTH; b++){
-					int xn = x + a - OFFSET;
-					int yn = y + b - OFFSET;
-
-					Pixel* p = &original->pixel_data[yn][xn];
-
-					c.Red += ((float) p->r) * kernel[a][b];
-					c.Green += ((float) p->g) * kernel[a][b];
-					c.Blue += ((float) p->b) * kernel[a][b];
+			#pragma omp parallel for reduction(+:c) collapse(2)
+			for(int alpha = 0; alpha < 3; ++alpha) {
+				for(int beta = 0; beta < 3; ++beta) {
+					apply_convolution(&c, alpha, beta, x, y, original, kernel);
 				}
 			}
+
+			// apply_convolution(&c, 0, 0, x, y, original, kernel);
+			// apply_convolution(&c, 0, 1, x, y, original, kernel);
+			// apply_convolution(&c, 0, 2, x, y, original, kernel);
+
+			// apply_convolution(&c, 1, 0, x, y, original, kernel);
+			// apply_convolution(&c, 1, 1, x, y, original, kernel);
+			// apply_convolution(&c, 1, 2, x, y, original, kernel);
+
+			// apply_convolution(&c, 2, 0, x, y, original, kernel);
+			// apply_convolution(&c, 2, 1, x, y, original, kernel);
+			// apply_convolution(&c, 2, 2, x, y, original, kernel);
 
 			Pixel* dest = &new_i->pixel_data[y][x];
 			dest->r = (uint8_t)  (c.Red <= 0 ? 0 : c.Red >= 255 ? 255 : c.Red);

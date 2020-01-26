@@ -1,4 +1,4 @@
-SET(GCC_COVERAGE_COMPILE_FLAGS "-O2 -ftree-vectorize -fopt-info -mavx2 -fopt-info-vec-all")
+SET(GCC_COVERAGE_COMPILE_FLAGS "-Ofast -ftree-vectorize -fopt-info -mavx2 -fopt-info-vec-all -ftree-vectorizer-verbose=0 -fopenmp")
 
 include_directories(${ImageThread_SOURCE_DIR}/app/include)
 

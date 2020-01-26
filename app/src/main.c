@@ -65,14 +65,16 @@ Processing* load_processing_data(ProgramParams* params) {
 	while((bitmap_file_dir = readdir(bitmap_directory)) != NULL) {
 		char *dot = strrchr(bitmap_file_dir->d_name, '.');
 		if (dot && !strcmp(dot, ".bmp")) {
-			file_names[current_pos] = bitmap_file_dir->d_name;
+			char* new_file = (char*)malloc(strlen(bitmap_file_dir->d_name) + 2);
+			strcpy(new_file, bitmap_file_dir->d_name);
+			file_names[current_pos] = new_file;
 			current_pos += 1;
 		}
 	}
 
 	StackMutex* stack_mutex = (StackMutex*)malloc(sizeof(StackMutex));
 	printf("Create a stack 50\n");
-	stack_mutex->stack = createStack(50);
+	stack_mutex->stack = createStack(1000);
 	printf("Create a lock\n");
 	stack_mutex->lock = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
 	pthread_mutex_init(stack_mutex->lock, NULL);
@@ -138,8 +140,6 @@ void* do_processing_threaded(void* process_unit_raw) {
 		printf("\x1B[33mWorker %d\x1B[0m", process_unit->number);
 		printf("\t\x1B[36mProcess image %d %s\x1B[0m\n", i, process_unit->data->files[i]);
 
-		process_unit->data->stack_mutex->stack;
-
 		pthread_mutex_lock(process_unit->data->stack_mutex->lock);
 			push(process_unit->data->stack_mutex->stack, unit);
 			pthread_cond_broadcast(&process_unit->data->awake_signal);
@@ -163,6 +163,7 @@ void* consumer(void* processing_raw) {
 			printf("\x1B[37mSave image %s\x1B[0m\n", unit->path);
 			save_bitmap(*unit->image, unit->path);
 			processing->bmp_done += 1;
+			printf("Done %d / %d\tQueue size %d\n", processing->bmp_done, processing->bmp_count, processing->stack_mutex->stack->top + 1);
 		}
 	}
 }
