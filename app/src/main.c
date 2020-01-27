@@ -162,6 +162,7 @@ void* consumer(void* processing_raw) {
 
 			printf("\x1B[37mSave image %s\x1B[0m\n", unit->path);
 			save_bitmap(*unit->image, unit->path);
+			destroy_image(unit->image);
 			processing->bmp_done += 1;
 			printf("Done %d / %d\tQueue size %d\n", processing->bmp_done, processing->bmp_count, processing->stack_mutex->stack->top + 1);
 		}
